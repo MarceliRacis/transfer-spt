@@ -38,7 +38,7 @@ app.use(session({
 }));
 
 app.use(express.static(path.join(__dirname, '../client/dist')));
-
+app.set('trust proxy', 1); // Pozwala Expressowi czytać nagłówki X-Forwarded-Proto
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 app.get('/auth/login', (req, res) => {

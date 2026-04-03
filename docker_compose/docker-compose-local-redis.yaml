@@ -1,7 +1,7 @@
 services:
   spt-transfer:
     build: .
-    image: registry.racis.dev/marceliracis/trasfer-spt:latest
+    image: registry.racis.dev/marceliracis/transfer-spt:latest
     container_name: spt-transfer
     restart: unless-stopped
     ports:
