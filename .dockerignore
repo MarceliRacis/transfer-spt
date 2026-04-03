@@ -1,0 +1,35 @@
+# Dependencies (reinstalled during build)
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output (rebuilt during build)
+client/dist/
+
+# Environment — never bake secrets into image
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Docker files themselves
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Docs
+README.md

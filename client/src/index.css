@@ -1,0 +1,36 @@
+:root {
+  --green: #1DB954;
+  --green-bright: #1ed760;
+  --green-dim: rgba(29, 185, 84, 0.15);
+  --green-glow: rgba(29, 185, 84, 0.3);
+  --bg: #080808;
+  --surface: #111111;
+  --surface2: #161616;
+  --surface3: #1c1c1c;
+  --border: #222222;
+  --border2: #2a2a2a;
+  --text: #f0f0f0;
+  --text2: #888;
+  --text3: #555;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+button { font-family: 'Outfit', sans-serif; }
+input, select { font-family: 'Outfit', sans-serif; }

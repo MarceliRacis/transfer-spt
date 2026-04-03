@@ -1,0 +1,16 @@
+services:
+  spt-transfer:
+    build: .
+    image: registry.racis.dev/marceliracis/spt-transfer:latest
+    container_name: spt-transfer
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - REDIRECT_URI=${REDIRECT_URI:-http://localhost:3000/auth/callback}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - REDIS_URL=${REDIS_URL}   # np. redis://default:haslo@redis-xyz.upstash.io:6379
