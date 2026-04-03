@@ -54,7 +54,7 @@ docker run -d \
   --restart unless-stopped \
   -p 3000:3000 \
   --env-file .env \
-  registry.racis.dev/marceliracis/spt-transfer:latest
+  registry.racis.dev/marceliracis/trasfer-spt:latest
 ```
 
 **Or build from source:**
@@ -146,7 +146,7 @@ When setting the destination to **+ New playlist** you can configure:
 
 Both compose files use the prebuilt image:
 ```
-registry.racis.dev/marceliracis/spt-transfer:latest
+registry.racis.dev/marceliracis/trasfer-spt:latest
 ```
 
 ---
@@ -155,7 +155,7 @@ registry.racis.dev/marceliracis/spt-transfer:latest
 
 ```bash
 # Pull latest image
-docker pull registry.racis.dev/marceliracis/spt-transfer:latest
+docker pull registry.racis.dev/marceliracis/trasfer-spt:latest
 
 # Start in background
 docker compose -f docker-compose-with-local-redis.yml up -d
@@ -167,8 +167,8 @@ docker compose down
 docker compose logs -f
 
 # Push new version after rebuild
-docker build -t registry.racis.dev/marceliracis/spt-transfer:latest .
-docker push registry.racis.dev/marceliracis/spt-transfer:latest
+docker build -t registry.racis.dev/marceliracis/trasfer-spt:latest .
+docker push registry.racis.dev/marceliracis/trasfer-spt:latest
 
 # Check container status
 docker ps | grep spt-transfer
