@@ -1,5 +1,5 @@
 # ─── Stage 1: Build React frontend ───────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 WORKDIR /build
 COPY client/package*.json ./client/
 RUN cd client && npm install
