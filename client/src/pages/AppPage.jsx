@@ -26,11 +26,13 @@ export default function AppPage() {
     try {
       const [meRes, plRes] = await Promise.all([
         fetch('/api/me').then(r => { if (r.status === 401) { window.location = '/'; throw new Error('unauth') } return r.json() }),
-        fetch('/api/playlists').then(r => r.json())
+        fetch('/api/playlists').then(r => { if (!r.ok) throw new Error(`Playlists error: ${r.status}`); return r.json() })
       ])
       setMe(meRes)
-      setPlaylists(plRes)
-    } catch {}
+      setPlaylists(Array.isArray(plRes) ? plRes : [])
+    } catch (err) {
+      if (err.message !== 'unauth') console.error('Init error:', err)
+    }
   }
 
   return (
@@ -48,7 +50,7 @@ export default function AppPage() {
           <div className={styles.navUser}>
             {me.images?.[0]?.url
               ? <img className={styles.avatar} src={me.images[0].url} alt={me.display_name} />
-              : <div className={styles.avatarFallback}>{(me.display_name || me.id)[0].toUpperCase()}</div>
+              : <div className={styles.avatarFallback}>{(me.display_name || me.id || '?')[0].toUpperCase()}</div>
             }
             <span className={styles.navName}>{me.display_name || me.id}</span>
             <a href="/auth/logout" className={styles.btnLogout}>Sign out</a>

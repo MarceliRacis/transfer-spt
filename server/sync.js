@@ -21,11 +21,16 @@ async function refreshToken(job) {
   const creds = Buffer.from(
     `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
   ).toString('base64');
-  const { data } = await axios.post(SPOTIFY_TOKEN_URL,
-    new URLSearchParams({ grant_type: 'refresh_token', refresh_token: job.refresh_token }),
-    { headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' } }
-  );
-  return { access_token: data.access_token, expires_at: Date.now() + data.expires_in * 1000 };
+  try {
+    const { data } = await axios.post(SPOTIFY_TOKEN_URL,
+      new URLSearchParams({ grant_type: 'refresh_token', refresh_token: job.refresh_token }),
+      { headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    return { access_token: data.access_token, expires_at: Date.now() + data.expires_in * 1000 };
+  } catch (err) {
+    console.error(`[refreshToken:${job.id}] Spotify error:`, err.response?.data || err.message);
+    throw err;
+  }
 }
 
 async function getValidToken(job) {
@@ -251,6 +256,18 @@ async function startTriggerPolling(job) {
       }
     } catch (err) {
       console.error(`[trigger:${job.id}] Poll error:`, err.message);
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        console.error(`[trigger:${job.id}] Token invalid — disabling job`);
+        try {
+          const redis = await getRedis();
+          const raw = await redis.hGet('spt:jobs', job.id);
+          const j = raw ? JSON.parse(raw) : {};
+          await redis.hSet('spt:jobs', job.id, JSON.stringify({
+            ...j, enabled: false, status: 'error', lastError: 'Token wygasł — zaloguj się ponownie i odtwórz job'
+          }));
+        } catch {}
+        stopTrigger(job.id);
+      }
     }
   };
 
