@@ -77,43 +77,50 @@ REDIRECT_URI=http://localhost:3000/auth/callback
 SESSION_SECRET=some-long-random-string
 PORT=3000
 
-# Required for Auto-sync and persistent sessions
+# Required for Auto-sync (see below)
 REDIS_URL=redis://default:password@host:port
-
-# IMPORTANT: Always set to production in K8s/Production environments
-# to avoid redirection to localhost:5173
-NODE_ENV=production
 ```
 
 ### 3. Run
 
-**With Docker Compose (Production):**
+**With Docker Compose (recommended):**
 
 ```bash
 # Local Redis (bundled)
-docker compose -f docker_compose/production-local-redis.yaml up -d
+docker compose -f docker_compose/docker-compose-with-local-redis.yml up -d
 
 # Cloud Redis (Upstash, Redis Cloud, Railway, etc.)
-docker compose -f docker_compose/production-cloud-redis.yaml up -d
+docker compose -f docker_compose/docker-compose-with-cloud-redis.yml up -d
 ```
 
----
-
-## Kubernetes Deployment (K8s) ☸️
-
-The application is fully scalable on K8s thanks to Redis-backed sessions and job persistence.
-
-### 1. Configure the manifest
-
-Open `k8s/production-full-stack.yaml` and:
-- Update `REDIRECT_URI` in the ConfigMap
-- Update `host` in the Ingress
-- Encode your secrets in Base64 and add them to the `Secret` object
-
-### 2. Apply
+**Using the prebuilt image directly:**
 
 ```bash
-kubectl apply -f k8s/production-full-stack.yaml
+docker run -d \
+  --name spt-transfer \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  --env-file .env \
+  registry.racis.dev/marceliracis/transfer-spt:latest
+```
+
+**Build from source:**
+
+```bash
+docker build -t spt-transfer .
+
+docker run -d \
+  --name spt-transfer \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  --env-file .env \
+  spt-transfer
+```
+
+### 4. Open
+
+```
+http://localhost:3000
 ```
 
 ---
@@ -180,8 +187,8 @@ Both compose files use the prebuilt image from `registry.racis.dev/marceliracis/
 
 | File | Redis |
 |------|-------|
-| `production-local-redis.yaml` | Bundled Redis container, data persisted in a Docker volume |
-| `production-cloud-redis.yaml` | No local Redis — uses `REDIS_URL` from `.env` |
+| `docker-compose-with-local-redis.yml` | Bundled Redis container, data persisted in a Docker volume |
+| `docker-compose-with-cloud-redis.yml` | No local Redis — uses `REDIS_URL` from `.env` |
 
 ---
 
@@ -249,10 +256,8 @@ server {
 spt-transfer/
 ├── Dockerfile                        # Multi-stage build: React → Express
 ├── docker_compose/
-│   ├── production-local-redis.yaml
-│   └── production-cloud-redis.yaml
-├── k8s/
-│   └── production-full-stack.yaml
+│   ├── docker-compose-with-local-redis.yml
+│   └── docker-compose-with-cloud-redis.yml
 ├── .env.example
 ├── server/
 │   ├── index.js                      # Express + Spotify OAuth + REST API

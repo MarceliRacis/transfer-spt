@@ -25,4 +25,4 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-spt.zip
+docker-compose.yaml
