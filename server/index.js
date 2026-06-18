@@ -3,15 +3,48 @@ const session = require('express-session');
 const axios = require('axios');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 require('dotenv').config({ path: __dirname + '/.env' });
 
 const { getRedis } = require('./redis');
 const { scheduleJob, unscheduleJob, runSync, restoreJobs, initSnapshot } = require('./sync');
+const RedisStore = require('connect-redis').default;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === 'production';
 const FRONTEND_DEV_URL = process.env.FRONTEND_DEV_URL || 'http://localhost:5173';
+
+if (IS_PROD && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'spt-transfer-secret-key')) {
+  console.error('FATAL: SESSION_SECRET must be set to a unique random string in production!');
+  process.exit(1);
+}
+
+// Security Middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "img-src": ["'self'", "https://i.scdn.co", "https://*.scdn.co", "data:"],
+      "connect-src": ["'self'", "https://api.spotify.com", "https://accounts.spotify.com"],
+    },
+  },
+}));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
+
+// Initialize Redis client for session store
+let redisClient;
+getRedis().then(client => { redisClient = client; }).catch(console.error);
 
 const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/authorize';
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
@@ -28,33 +61,58 @@ const SCOPES = [
 
 app.use(express.json());
 app.use(session({
+  store: new RedisStore({
+    client: {
+      get: (...args) => redisClient ? redisClient.get(...args) : Promise.resolve(null),
+      set: (...args) => redisClient ? redisClient.set(...args) : Promise.resolve(null),
+      del: (...args) => redisClient ? redisClient.del(...args) : Promise.resolve(null),
+    },
+    prefix: "spt:session:",
+  }),
   secret: process.env.SESSION_SECRET || 'spt-transfer-secret-key',
   resave: false,
   saveUninitialized: false,
+  name: '__spt_session',
   cookie: {
     secure: IS_PROD,
+    httpOnly: true,
+    sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000
   }
 }));
 
+if (IS_PROD) {
+  app.set('trust proxy', 1);
+}
+
 app.use(express.static(path.join(__dirname, '../client/dist')));
-app.set('trust proxy', 1); // Pozwala Expressowi czytać nagłówki X-Forwarded-Proto
+
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 app.get('/auth/login', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.oauthState = state;
+
   const params = new URLSearchParams({
     client_id: process.env.SPOTIFY_CLIENT_ID,
     response_type: 'code',
     redirect_uri: process.env.REDIRECT_URI,
     scope: SCOPES,
+    state: state,
     show_dialog: 'true'
   });
   res.redirect(`${SPOTIFY_AUTH_URL}?${params}`);
 });
 
 app.get('/auth/callback', async (req, res) => {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
   const frontendBase = IS_PROD ? '' : FRONTEND_DEV_URL;
+
+  if (!state || state !== req.session.oauthState) {
+    return res.redirect(`${frontendBase}/?error=state_mismatch`);
+  }
+  delete req.session.oauthState;
+
   if (error) return res.redirect(`${frontendBase}/?error=${error}`);
 
   try {
@@ -125,7 +183,8 @@ app.get('/api/me', requireAuth, async (req, res) => {
     const { data } = await spotifyAPI(req.token).get('/me');
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API /me error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
@@ -142,7 +201,8 @@ app.get('/api/playlists', requireAuth, async (req, res) => {
     const liked = { id: 'liked', name: '❤️ Polubione utwory', type: 'liked', images: [] };
     res.json([liked, ...playlists.filter(Boolean)]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API /playlists error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch playlists' });
   }
 });
 
@@ -161,12 +221,15 @@ app.get('/api/tracks/:playlistId', requireAuth, async (req, res) => {
     }
     res.json({ total: tracks.length, tracks });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`API /tracks/${playlistId} error:`, err.message);
+    res.status(500).json({ error: 'Failed to fetch tracks' });
   }
 });
 
 app.post('/api/playlists', requireAuth, async (req, res) => {
   const { name, description, isPublic, collaborative } = req.body;
+  if (name && typeof name !== 'string') return res.status(400).json({ error: 'Invalid name' });
+
   try {
     const api = spotifyAPI(req.token);
     const { data: me } = await api.get('/me');
@@ -180,7 +243,6 @@ app.post('/api/playlists', requireAuth, async (req, res) => {
       collaborative: isCollab,
     });
 
-    // Spotify API ignores public:false on creation (known bug) — always PATCH to enforce.
     await api.put(`/playlists/${data.id}`, {
       public: isPublicFinal,
       collaborative: isCollab,
@@ -189,12 +251,15 @@ app.post('/api/playlists', requireAuth, async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API create playlist error:', err.message);
+    res.status(500).json({ error: 'Failed to create playlist' });
   }
 });
 
 app.post('/api/transfer', requireAuth, async (req, res) => {
   const { sourceId, destId } = req.body;
+  if (!sourceId || !destId) return res.status(400).json({ error: 'sourceId and destId required' });
+
   const api = spotifyAPI(req.token);
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -226,7 +291,8 @@ app.post('/api/transfer', requireAuth, async (req, res) => {
     }
     send({ type: 'done', message: `Transfer complete! Moved ${uris.length} tracks.`, progress: 100, total: uris.length });
   } catch (err) {
-    send({ type: 'error', message: err.response?.data?.error?.message || err.message });
+    console.error('API transfer error:', err.message);
+    send({ type: 'error', message: 'Transfer failed' });
   } finally {
     res.end();
   }
@@ -245,13 +311,17 @@ app.get('/api/sync/jobs', requireAuth, async (req, res) => {
       .map(({ access_token, refresh_token, ...safe }) => safe);
     res.json(jobs);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API get jobs error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch sync jobs' });
   }
 });
 
 app.post('/api/sync/jobs', requireAuth, async (req, res) => {
   const { sourceId, destId, type, cronInterval, triggerIntervalMinutes, label } = req.body;
   if (!sourceId || !destId || !type) return res.status(400).json({ error: 'sourceId, destId, type required' });
+  
+  const validTypes = ['cron', 'trigger', 'both'];
+  if (!validTypes.includes(type)) return res.status(400).json({ error: 'Invalid job type' });
 
   try {
     const redis = await getRedis();
@@ -260,12 +330,12 @@ app.post('/api/sync/jobs', requireAuth, async (req, res) => {
     const job = {
       id: uuidv4(),
       userId: me.id,
-      label: label || `Auto-sync`,
+      label: (typeof label === 'string' ? label.substring(0, 100) : null) || `Auto-sync`,
       sourceId,
       destId,
       type,
       cronInterval: cronInterval || 'every_1h',
-      triggerIntervalMinutes: triggerIntervalMinutes || 5,
+      triggerIntervalMinutes: Math.max(1, parseInt(triggerIntervalMinutes) || 5),
       enabled: true,
       createdAt: Date.now(),
       lastRun: null,
@@ -286,18 +356,25 @@ app.post('/api/sync/jobs', requireAuth, async (req, res) => {
     const { access_token, refresh_token, ...safeJob } = job;
     res.json(safeJob);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('API create job error:', err.message);
+    res.status(500).json({ error: 'Failed to create sync job' });
   }
 });
 
 app.patch('/api/sync/jobs/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' });
+
   try {
     const redis = await getRedis();
     const raw = await redis.hGet('spt:jobs', id);
     if (!raw) return res.status(404).json({ error: 'Job not found' });
     const job = JSON.parse(raw);
+
+    const { data: me } = await spotifyAPI(req.token).get('/me');
+    if (job.userId !== me.id) return res.status(403).json({ error: 'Forbidden' });
+
     job.enabled = enabled;
     await redis.hSet('spt:jobs', id, JSON.stringify(job));
     if (enabled) {
@@ -309,7 +386,8 @@ app.patch('/api/sync/jobs/:id', requireAuth, async (req, res) => {
     const { access_token, refresh_token, ...safe } = job;
     res.json(safe);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`API patch job ${id} error:`, err.message);
+    res.status(500).json({ error: 'Failed to update job' });
   }
 });
 
@@ -317,13 +395,21 @@ app.delete('/api/sync/jobs/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const redis = await getRedis();
+    const raw = await redis.hGet('spt:jobs', id);
+    if (!raw) return res.status(404).json({ error: 'Job not found' });
+    const job = JSON.parse(raw);
+
+    const { data: me } = await spotifyAPI(req.token).get('/me');
+    if (job.userId !== me.id) return res.status(403).json({ error: 'Forbidden' });
+
     unscheduleJob(id);
     await redis.hDel('spt:jobs', id);
     await redis.del(`spt:logs:${id}`);
     await redis.del(`spt:snapshot:${id}`);
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`API delete job ${id} error:`, err.message);
+    res.status(500).json({ error: 'Failed to delete job' });
   }
 });
 
@@ -333,10 +419,16 @@ app.post('/api/sync/jobs/:id/run', requireAuth, async (req, res) => {
     const redis = await getRedis();
     const raw = await redis.hGet('spt:jobs', id);
     if (!raw) return res.status(404).json({ error: 'Job not found' });
-    runSync(JSON.parse(raw)).catch(console.error);
+    const job = JSON.parse(raw);
+
+    const { data: me } = await spotifyAPI(req.token).get('/me');
+    if (job.userId !== me.id) return res.status(403).json({ error: 'Forbidden' });
+
+    runSync(job).catch(console.error);
     res.json({ ok: true, message: 'Sync started' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`API run job ${id} error:`, err.message);
+    res.status(500).json({ error: 'Failed to start sync' });
   }
 });
 
@@ -344,10 +436,18 @@ app.get('/api/sync/jobs/:id/logs', requireAuth, async (req, res) => {
   const { id } = req.params;
   try {
     const redis = await getRedis();
-    const raw = await redis.lRange(`spt:logs:${id}`, 0, 49);
-    res.json(raw.map(r => JSON.parse(r)));
+    const rawJob = await redis.hGet('spt:jobs', id);
+    if (!rawJob) return res.status(404).json({ error: 'Job not found' });
+    const job = JSON.parse(rawJob);
+
+    const { data: me } = await spotifyAPI(req.token).get('/me');
+    if (job.userId !== me.id) return res.status(403).json({ error: 'Forbidden' });
+
+    const rawLogs = await redis.lRange(`spt:logs:${id}`, 0, 49);
+    res.json(rawLogs.map(r => JSON.parse(r)));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(`API get logs for job ${id} error:`, err.message);
+    res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
 

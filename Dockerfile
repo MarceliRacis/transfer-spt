@@ -11,6 +11,9 @@ FROM node:20-alpine AS production
 RUN apk add --no-cache curl
 WORKDIR /app
 
+ENV NODE_ENV=production
+ENV PORT=3000
+
 # Server deps
 COPY server/package*.json ./server/
 RUN cd server && npm install --omit=dev
