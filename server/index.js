@@ -113,7 +113,10 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 app.get('/auth/login', (req, res) => {
-  const state = crypto.randomBytes(16).toString('hex');
+  const isPopup = req.query.popup === '1';
+  // Encode popup flag into state: "<hex>:popup" or "<hex>"
+  const stateRandom = crypto.randomBytes(16).toString('hex');
+  const state = isPopup ? `${stateRandom}:popup` : stateRandom;
   req.session.oauthState = state;
 
   const params = new URLSearchParams({
@@ -131,12 +134,32 @@ app.get('/auth/callback', async (req, res) => {
   const { code, error, state } = req.query;
   const frontendBase = IS_PROD ? '' : FRONTEND_DEV_URL;
 
+  const isPopup = state && state.endsWith(':popup');
+
   if (!state || state !== req.session.oauthState) {
+    if (isPopup) {
+      return res.send(`
+        <script>
+          window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
+          window.close();
+        </script>
+      `);
+    }
     return res.redirect(`${frontendBase}/?error=state_mismatch`);
   }
   delete req.session.oauthState;
 
-  if (error) return res.redirect(`${frontendBase}/?error=${error}`);
+  if (error) {
+    if (isPopup) {
+      return res.send(`
+        <script>
+          window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
+          window.close();
+        </script>
+      `);
+    }
+    return res.redirect(`${frontendBase}/?error=${error}`);
+  }
 
   try {
     const creds = Buffer.from(
@@ -154,9 +177,26 @@ app.get('/auth/callback', async (req, res) => {
       expires_at: Date.now() + data.expires_in * 1000
     };
 
+    if (isPopup) {
+      return res.send(`
+        <script>
+          window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
+          window.close();
+        </script>
+      `);
+    }
+
     res.redirect(`${frontendBase}/app`);
   } catch (err) {
     console.error('Auth error:', err.response?.data || err.message);
+    if (isPopup) {
+      return res.send(`
+        <script>
+          window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
+          window.close();
+        </script>
+      `);
+    }
     res.redirect(`${frontendBase}/?error=auth_failed`);
   }
 });
