@@ -139,6 +139,7 @@ app.get('/auth/callback', async (req, res) => {
 
   if (!state || state !== req.session.oauthState) {
     if (isPopup) {
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
         <script>
           window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
@@ -152,6 +153,7 @@ app.get('/auth/callback', async (req, res) => {
 
   if (error) {
     if (isPopup) {
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
         <script>
           window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
@@ -179,6 +181,7 @@ app.get('/auth/callback', async (req, res) => {
     };
 
     if (isPopup) {
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
         <script>
           window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
@@ -191,6 +194,7 @@ app.get('/auth/callback', async (req, res) => {
   } catch (err) {
     console.error('Auth error:', err.response?.data || err.message);
     if (isPopup) {
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
         <script>
           window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
