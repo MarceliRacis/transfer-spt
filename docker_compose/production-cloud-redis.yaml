@@ -14,3 +14,4 @@ services:
       - REDIRECT_URI=${REDIRECT_URI:-http://localhost:3000/auth/callback}
       - SESSION_SECRET=${SESSION_SECRET}
       - REDIS_URL=${REDIS_URL}   # np. redis://default:haslo@redis-xyz.upstash.io:6379
+      - IFRAME_URL=${IFRAME_URL}

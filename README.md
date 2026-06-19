@@ -50,6 +50,7 @@ Full mirror sync with live progress, auto-sync jobs, and a one-command Docker se
 - **Handles large libraries** — pagination support, batched in chunks of 100 (Spotify API limit)
 - **Automatic token refresh** — long transfers never break due to expired credentials
 - **Multi-arch Docker image** — runs on both `amd64` and `arm64`
+- **Iframe embedding support** — configure `IFRAME_URL` to allow embedding the app in specified domains using Helmet's Content Security Policy (`frame-ancestors`)
 
 ---
 
@@ -83,6 +84,11 @@ REDIS_URL=redis://default:password@host:port
 # IMPORTANT: Always set to production in K8s/Production environments
 # to avoid redirection to localhost:5173
 NODE_ENV=production
+
+# Security / CSP (Optional - semicolon-separated list of hosts allowed to embed the app in an iframe)
+# e.g. IFRAME_URL=*.racis.dev;github.com
+IFRAME_URL=
+
 ```
 
 ### 3. Run

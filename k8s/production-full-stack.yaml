@@ -13,6 +13,7 @@ data:
   PORT: "3000"
   REDIRECT_URI: "http://spt.yourdomain.com/auth/callback" # Zmień na swoją domenę
   REDIS_URL: "redis://spt-redis:6379"
+  IFRAME_URL: "" # Semicolon-separated list of domains allowed to embed this app in an iframe (CSP frame-ancestors)
 ---
 apiVersion: v1
 kind: Secret

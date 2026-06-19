@@ -14,6 +14,7 @@ services:
       - REDIRECT_URI=${REDIRECT_URI:-http://localhost:3000/auth/callback}
       - SESSION_SECRET=${SESSION_SECRET}
       - REDIS_URL=redis://redis:6379
+      - IFRAME_URL=${IFRAME_URL}
     depends_on:
       redis:
         condition: service_healthy

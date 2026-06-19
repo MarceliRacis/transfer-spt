@@ -22,13 +22,36 @@ if (IS_PROD && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 's
   process.exit(1);
 }
 
+// ─── IFRAME_URL -> CSP frame-ancestors ────────────────────────────────────────
+// IFRAME_URL="*.racis.dev;github.com" -> frame-ancestors https://*.racis.dev https://github.com
+// Brak IFRAME_URL -> domyślnie 'self' (tylko własna domena moze osadzic w iframe)
+function parseFrameAncestors() {
+  const raw = process.env.IFRAME_URL;
+  if (!raw) return ["'self'"];
+
+  const validHost = /^(\*\.)?[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$/;
+
+  const hosts = raw
+    .split(';')
+    .map(h => h.trim())
+    .filter(h => h && validHost.test(h));
+
+  if (hosts.length === 0) return ["'self'"];
+
+  return hosts.map(host => `https://${host}`);
+}
+
 // Security Middleware
 app.use(helmet({
+  // X-Frame-Options nie wspiera wielu domen/wildcardów - wylaczone,
+  // ochrona przed clickjackingiem oparta wylacznie na CSP frame-ancestors
+  frameguard: false,
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "img-src": ["'self'", "https://i.scdn.co", "https://*.scdn.co", "data:"],
       "connect-src": ["'self'", "https://api.spotify.com", "https://accounts.spotify.com"],
+      "frame-ancestors": parseFrameAncestors(),
     },
   },
 }));
