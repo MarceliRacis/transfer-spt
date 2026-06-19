@@ -117,18 +117,20 @@ export default function LoginPage() {
               if (!popup || popup.closed) {
                 clearInterval(timer);
                 
-                // Jednorazowe sprawdzenie sesji po zamknięciu okna
-                fetch('/api/me')
-                  .then(r => {
-                    if (r.ok) {
-                      window.location.href = '/app';
-                    } else {
-                      setError('Authentication completed but session is invalid. Please try again.');
-                    }
-                  })
-                  .catch(() => {
-                    setError('Connection error checking session.');
-                  });
+                // Opóźnienie 300ms, aby przeglądarka zapisała ciasteczka sesyjne
+                setTimeout(() => {
+                  fetch('/api/me')
+                    .then(r => {
+                      if (r.ok) {
+                        window.location.href = '/app';
+                      } else {
+                        setError('Authentication completed but session is invalid. Please try again.');
+                      }
+                    })
+                    .catch(() => {
+                      setError('Connection error checking session.');
+                    });
+                }, 300);
               }
             }, 500);
           }}
