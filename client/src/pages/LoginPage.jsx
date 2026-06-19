@@ -112,25 +112,25 @@ export default function LoginPage() {
               popup.opener = window;
             }
 
-            // Polling stanu sesji jako ultra-niezawodna alternatywa dla postMessage
-            const interval = setInterval(() => {
-              // Sprawdzamy czy okienko zostało zamknięte przez użytkownika
-              if (popup && popup.closed) {
-                clearInterval(interval);
-              }
-              
-              fetch('/api/me')
-                .then(r => {
-                  if (r.ok) {
-                    clearInterval(interval);
-                    if (popup && !popup.closed) {
-                      popup.close();
+            // Sprawdzamy czy okienko zostało zamknięte
+            const timer = setInterval(() => {
+              if (!popup || popup.closed) {
+                clearInterval(timer);
+                
+                // Jednorazowe sprawdzenie sesji po zamknięciu okna
+                fetch('/api/me')
+                  .then(r => {
+                    if (r.ok) {
+                      window.location.href = '/app';
+                    } else {
+                      setError('Authentication completed but session is invalid. Please try again.');
                     }
-                    window.location.href = '/app';
-                  }
-                })
-                .catch(() => {});
-            }, 1000);
+                  })
+                  .catch(() => {
+                    setError('Connection error checking session.');
+                  });
+              }
+            }, 500);
           }}
           className={styles.btnLogin}
           style={{ border: 'none', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
