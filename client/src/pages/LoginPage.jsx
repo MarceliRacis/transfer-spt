@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
@@ -6,25 +6,108 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  // Refy do sprzątania - żeby nie zostawiać listenerów/timerów po odmontowaniu
+  const messageHandlerRef = useRef(null)
+  const closedTimerRef = useRef(null)
+
   useEffect(() => {
-    let activeInterval = null;
     setMounted(true)
     const p = new URLSearchParams(window.location.search)
     if (p.get('error')) setError(p.get('error'))
 
-    // Sprawdzenie sesji
+    // Sprawdzenie czy sesja już istnieje
     fetch('/api/me')
       .then(r => {
         if (r.ok) {
-          window.location.href = '/app';
+          window.location.href = '/app'
         }
       })
-      .catch(() => {});
+      .catch(() => {})
 
     return () => {
-      if (activeInterval) clearInterval(activeInterval);
-    };
+      // Sprzątanie przy odmontowaniu
+      if (messageHandlerRef.current) {
+        window.removeEventListener('message', messageHandlerRef.current)
+      }
+      if (closedTimerRef.current) {
+        clearInterval(closedTimerRef.current)
+      }
+    }
   }, [])
+
+  const cleanup = (handler, timer) => {
+    if (handler) window.removeEventListener('message', handler)
+    if (timer) clearInterval(timer)
+    messageHandlerRef.current = null
+    closedTimerRef.current = null
+  }
+
+  const handleLogin = () => {
+    if (loading) return
+    setLoading(true)
+    setError(null)
+
+    const width = 600
+    const height = 800
+    const left = window.screen.width / 2 - width / 2
+    const top = window.screen.height / 2 - height / 2
+
+    const popup = window.open(
+      '/auth/login?popup=1',
+      'SpotifyLogin',
+      `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
+    )
+
+    if (!popup) {
+      setLoading(false)
+      setError('Popup blocked by browser. Please enable popups for this site.')
+      return
+    }
+
+    // Główna metoda: nasłuchuj postMessage z popupu
+    // Serwer wysyła { type: 'SPOTIFY_AUTH_SUCCESS' } lub { type: 'SPOTIFY_AUTH_ERROR', error: '...' }
+    const handleMessage = (event) => {
+      // Ignoruj wiadomości z innych originów
+      if (event.origin !== window.location.origin) return
+
+      if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
+        cleanup(handleMessage, closedTimerRef.current)
+
+        fetch('/api/me')
+          .then(r => {
+            if (r.ok) {
+              window.location.href = '/app'
+            } else {
+              setLoading(false)
+              setError('Authentication completed but session is invalid. Please try again.')
+            }
+          })
+          .catch(() => {
+            setLoading(false)
+            setError('Connection error checking session.')
+          })
+      }
+
+      if (event.data?.type === 'SPOTIFY_AUTH_ERROR') {
+        cleanup(handleMessage, closedTimerRef.current)
+        setLoading(false)
+        setError(`Auth error: ${event.data.error}`)
+      }
+    }
+
+    messageHandlerRef.current = handleMessage
+    window.addEventListener('message', handleMessage)
+
+    // Fallback: user ręcznie zamknął popup bez zalogowania
+    const closedTimer = setInterval(() => {
+      if (popup.closed) {
+        cleanup(messageHandlerRef.current, closedTimer)
+        setLoading(false)
+      }
+    }, 500)
+
+    closedTimerRef.current = closedTimer
+  }
 
   return (
     <div className={styles.root}>
@@ -89,54 +172,7 @@ export default function LoginPage() {
         {/* CTA */}
         <button
           disabled={loading}
-          onClick={() => {
-            if (loading) return;
-            setLoading(true);
-            setError(null);
-            
-            const width = 600;
-            const height = 800;
-            const left = window.screen.width / 2 - width / 2;
-            const top = window.screen.height / 2 - height / 2;
-            
-            const popup = window.open(
-              '/auth/login?popup=1',
-              'SpotifyLogin',
-              `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`,
-              false
-            );
-            if (popup) {
-              popup.opener = window;
-            }
-
-            // Sprawdzamy czy okienko zostało zamknięte
-            if (popup) {
-              const timer = setInterval(() => {
-                if (popup.closed) {
-                  clearInterval(timer);
-                  setLoading(false);
-                  
-                  // Opóźnienie 1000ms, aby przeglądarka zapisała ciasteczka sesyjne
-                  setTimeout(() => {
-                    fetch('/api/me')
-                      .then(r => {
-                        if (r.ok) {
-                          window.location.href = '/app';
-                        } else {
-                          setError('Authentication completed but session is invalid. Please try again.');
-                        }
-                      })
-                      .catch(() => {
-                        setError('Connection error checking session.');
-                      });
-                  }, 1000);
-                }
-              }, 500);
-            } else {
-              setLoading(false);
-              setError('Popup blocked by browser. Please enable popups for this site.');
-            }
-          }}
+          onClick={handleLogin}
           className={styles.btnLogin}
           style={{ border: 'none', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
