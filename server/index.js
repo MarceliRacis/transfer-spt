@@ -141,10 +141,21 @@ app.get('/auth/callback', async (req, res) => {
     if (isPopup) {
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
-        <script>
-          window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
-          window.close();
-        </script>
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Error</title></head>
+        <body>
+          <script>
+            const target = window.opener || window.parent;
+            if (target && target !== window) {
+              target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
+              window.close();
+            } else {
+              window.location.href = '/?error=state_mismatch';
+            }
+          </script>
+        </body>
+        </html>
       `);
     }
     return res.redirect(`${frontendBase}/?error=state_mismatch`);
@@ -155,10 +166,21 @@ app.get('/auth/callback', async (req, res) => {
     if (isPopup) {
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
-        <script>
-          window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
-          window.close();
-        </script>
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Error</title></head>
+        <body>
+          <script>
+            const target = window.opener || window.parent;
+            if (target && target !== window) {
+              target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
+              window.close();
+            } else {
+              window.location.href = '/?error=${error}';
+            }
+          </script>
+        </body>
+        </html>
       `);
     }
     return res.redirect(`${frontendBase}/?error=${error}`);
@@ -183,10 +205,22 @@ app.get('/auth/callback', async (req, res) => {
     if (isPopup) {
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
-        <script>
-          window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
-          window.close();
-        </script>
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authenticating...</title></head>
+        <body>
+          <script>
+            const target = window.opener || window.parent;
+            if (target && target !== window) {
+              target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
+              window.close();
+            } else {
+              // Awaryjne przekierowanie gdy brak openera
+              window.location.href = '/app';
+            }
+          </script>
+        </body>
+        </html>
       `);
     }
 
@@ -196,10 +230,21 @@ app.get('/auth/callback', async (req, res) => {
     if (isPopup) {
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
       return res.send(`
-        <script>
-          window.opener.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
-          window.close();
-        </script>
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentication Failed</title></head>
+        <body>
+          <script>
+            const target = window.opener || window.parent;
+            if (target && target !== window) {
+              target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
+              window.close();
+            } else {
+              window.location.href = '/?error=auth_failed';
+            }
+          </script>
+        </body>
+        </html>
       `);
     }
     res.redirect(`${frontendBase}/?error=auth_failed`);

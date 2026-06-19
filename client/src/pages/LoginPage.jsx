@@ -81,9 +81,13 @@ export default function LoginPage() {
             
             const popup = window.open(
               '/auth/login?popup=1',
-              'Spotify Login',
-              `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
+              'SpotifyLogin',
+              `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`,
+              false
             );
+            if (popup) {
+              popup.opener = window;
+            }
 
             const handleMessage = (event) => {
               if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
