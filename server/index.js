@@ -297,7 +297,7 @@ app.get('/auth/callback', async (req, res) => {
             const target = window.opener || window.parent;
             if (target && target !== window) {
               target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
-              window.close();
+              setTimeout(() => { window.close(); }, 500);
             } else {
               setTimeout(() => { window.close(); }, 1500);
             }
@@ -376,7 +376,7 @@ app.get('/auth/callback', async (req, res) => {
             const target = window.opener || window.parent;
             if (target && target !== window) {
               target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
-              window.close();
+              setTimeout(() => { window.close(); }, 500);
             } else {
               setTimeout(() => { window.close(); }, 1500);
             }

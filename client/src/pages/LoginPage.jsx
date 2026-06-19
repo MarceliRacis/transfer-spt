@@ -18,6 +18,20 @@ export default function LoginPage() {
         }
       })
       .catch(() => {});
+
+    // Globalny listener dla okienka popup
+    const handleMessage = (event) => {
+      if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
+        window.location.href = '/app';
+      } else if (event.data?.type === 'SPOTIFY_AUTH_ERROR') {
+        setError(event.data.error || 'Authentication failed');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
   }, [])
 
   return (
@@ -97,18 +111,6 @@ export default function LoginPage() {
             if (popup) {
               popup.opener = window;
             }
-
-            const handleMessage = (event) => {
-              if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
-                window.removeEventListener('message', handleMessage);
-                window.location.href = '/app';
-              } else if (event.data?.type === 'SPOTIFY_AUTH_ERROR') {
-                window.removeEventListener('message', handleMessage);
-                setError(event.data.error || 'Authentication failed');
-              }
-            };
-
-            window.addEventListener('message', handleMessage);
           }}
           className={styles.btnLogin}
           style={{ border: 'none', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
