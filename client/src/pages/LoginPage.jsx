@@ -111,6 +111,26 @@ export default function LoginPage() {
             if (popup) {
               popup.opener = window;
             }
+
+            // Polling stanu sesji jako ultra-niezawodna alternatywa dla postMessage
+            const interval = setInterval(() => {
+              // Sprawdzamy czy okienko zostało zamknięte przez użytkownika
+              if (popup && popup.closed) {
+                clearInterval(interval);
+              }
+              
+              fetch('/api/me')
+                .then(r => {
+                  if (r.ok) {
+                    clearInterval(interval);
+                    if (popup && !popup.closed) {
+                      popup.close();
+                    }
+                    window.location.href = '/app';
+                  }
+                })
+                .catch(() => {});
+            }, 1000);
           }}
           className={styles.btnLogin}
           style={{ border: 'none', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
