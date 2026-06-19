@@ -89,6 +89,7 @@ app.use(session({
       get: (...args) => redisClient ? redisClient.get(...args) : Promise.resolve(null),
       set: (...args) => redisClient ? redisClient.set(...args) : Promise.resolve(null),
       del: (...args) => redisClient ? redisClient.del(...args) : Promise.resolve(null),
+      expire: (...args) => redisClient ? redisClient.expire(...args) : Promise.resolve(null),
     },
     prefix: "spt:session:",
   }),
