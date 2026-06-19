@@ -144,14 +144,16 @@ app.get('/auth/callback', async (req, res) => {
         <!DOCTYPE html>
         <html>
         <head><title>Authentication Error</title></head>
-        <body>
+        <body style="background:#121212;color:#ff5555;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;">
+          <h2 style="margin-bottom:8px;">Błąd autoryzacji</h2>
+          <p style="color:#b3b3b3;margin:0;">Sesja wygasła (mismatch). Zamykanie...</p>
           <script>
             const target = window.opener || window.parent;
             if (target && target !== window) {
               target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
               window.close();
             } else {
-              window.location.href = '/?error=state_mismatch';
+              setTimeout(() => { window.close(); }, 1500);
             }
           </script>
         </body>
@@ -169,14 +171,16 @@ app.get('/auth/callback', async (req, res) => {
         <!DOCTYPE html>
         <html>
         <head><title>Authentication Error</title></head>
-        <body>
+        <body style="background:#121212;color:#ff5555;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;">
+          <h2 style="margin-bottom:8px;">Błąd autoryzacji</h2>
+          <p style="color:#b3b3b3;margin:0;">Wystąpił błąd Spotify. Zamykanie...</p>
           <script>
             const target = window.opener || window.parent;
             if (target && target !== window) {
               target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
               window.close();
             } else {
-              window.location.href = '/?error=${error}';
+              setTimeout(() => { window.close(); }, 1500);
             }
           </script>
         </body>
@@ -203,20 +207,98 @@ app.get('/auth/callback', async (req, res) => {
     };
 
     if (isPopup) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com");
       return res.send(`
         <!DOCTYPE html>
         <html>
-        <head><title>Authenticating...</title></head>
+        <head>
+          <title>Logged In</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+          <style>
+            body {
+              background: #080808;
+              color: #f0f0f0;
+              font-family: 'Outfit', sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+              position: relative;
+              overflow: hidden;
+            }
+            .noise {
+              position: absolute;
+              inset: 0;
+              background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+              pointer-events: none;
+              opacity: 0.4;
+            }
+            .orb {
+              position: absolute;
+              width: 400px;
+              height: 400px;
+              border-radius: 50%;
+              background: radial-gradient(circle, rgba(29,185,84,0.15) 0%, transparent 70%);
+              pointer-events: none;
+              z-index: 0;
+            }
+            .content {
+              position: relative;
+              z-index: 1;
+              text-align: center;
+              padding: 2rem;
+              background: rgba(17, 17, 17, 0.7);
+              border: 1px solid rgba(255, 255, 255, 0.05);
+              backdrop-filter: blur(10px);
+              border-radius: 16px;
+              max-width: 320px;
+              box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            .badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              background: rgba(29,185,84,0.08);
+              border: 1px solid rgba(29,185,84,0.2);
+              border-radius: 100px;
+              padding: 5px 14px;
+              font-size: 0.72rem;
+              font-weight: 600;
+              color: #1DB954;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              margin-bottom: 16px;
+            }
+            h2 {
+              margin: 0 0 8px 0;
+              font-weight: 600;
+              font-size: 1.5rem;
+            }
+            p {
+              color: #888;
+              margin: 0;
+              font-size: 0.9rem;
+            }
+          </style>
+        </head>
         <body>
+          <div class="noise"></div>
+          <div class="orb"></div>
+          <div class="content">
+            <div class="badge">SPT / Transfer</div>
+            <h2>Zalogowano!</h2>
+            <p>To okno zaraz się zamknie...</p>
+          </div>
           <script>
             const target = window.opener || window.parent;
             if (target && target !== window) {
               target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
               window.close();
             } else {
-              // Awaryjne przekierowanie gdy brak openera
-              window.location.href = '/app';
+              setTimeout(() => { window.close(); }, 1500);
             }
           </script>
         </body>
@@ -228,19 +310,73 @@ app.get('/auth/callback', async (req, res) => {
   } catch (err) {
     console.error('Auth error:', err.response?.data || err.message);
     if (isPopup) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com");
       return res.send(`
         <!DOCTYPE html>
         <html>
-        <head><title>Authentication Failed</title></head>
+        <head>
+          <title>Authentication Failed</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+          <style>
+            body {
+              background: #080808;
+              color: #f0f0f0;
+              font-family: 'Outfit', sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+              position: relative;
+              overflow: hidden;
+            }
+            .noise {
+              position: absolute;
+              inset: 0;
+              background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+              pointer-events: none;
+              opacity: 0.4;
+            }
+            .content {
+              position: relative;
+              z-index: 1;
+              text-align: center;
+              padding: 2rem;
+              background: rgba(17, 17, 17, 0.7);
+              border: 1px solid rgba(255, 85, 85, 0.2);
+              backdrop-filter: blur(10px);
+              border-radius: 16px;
+              max-width: 320px;
+              box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            h2 {
+              color: #ff5555;
+              margin: 0 0 8px 0;
+              font-weight: 600;
+              font-size: 1.5rem;
+            }
+            p {
+              color: #888;
+              margin: 0;
+              font-size: 0.9rem;
+            }
+          </style>
+        </head>
         <body>
+          <div class="noise"></div>
+          <div class="content">
+            <h2>Błąd logowania</h2>
+            <p>Spróbuj ponownie za chwilę...</p>
+          </div>
           <script>
             const target = window.opener || window.parent;
             if (target && target !== window) {
               target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
               window.close();
             } else {
-              window.location.href = '/?error=auth_failed';
+              setTimeout(() => { window.close(); }, 1500);
             }
           </script>
         </body>

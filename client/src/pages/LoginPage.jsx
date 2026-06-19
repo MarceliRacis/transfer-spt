@@ -9,6 +9,15 @@ export default function LoginPage() {
     setMounted(true)
     const p = new URLSearchParams(window.location.search)
     if (p.get('error')) setError(p.get('error'))
+
+    // Sprawdzenie sesji
+    fetch('/api/me')
+      .then(r => {
+        if (r.ok) {
+          window.location.href = '/app';
+        }
+      })
+      .catch(() => {});
   }, [])
 
   return (
