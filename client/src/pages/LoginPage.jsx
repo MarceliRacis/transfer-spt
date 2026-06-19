@@ -4,8 +4,10 @@ import styles from './LoginPage.module.css'
 export default function LoginPage() {
   const [error, setError] = useState(null)
   const [mounted, setMounted] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    let activeInterval = null;
     setMounted(true)
     const p = new URLSearchParams(window.location.search)
     if (p.get('error')) setError(p.get('error'))
@@ -19,18 +21,8 @@ export default function LoginPage() {
       })
       .catch(() => {});
 
-    // Globalny listener dla okienka popup
-    const handleMessage = (event) => {
-      if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
-        window.location.href = '/app';
-      } else if (event.data?.type === 'SPOTIFY_AUTH_ERROR') {
-        setError(event.data.error || 'Authentication failed');
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
     return () => {
-      window.removeEventListener('message', handleMessage);
+      if (activeInterval) clearInterval(activeInterval);
     };
   }, [])
 
@@ -96,7 +88,12 @@ export default function LoginPage() {
 
         {/* CTA */}
         <button
+          disabled={loading}
           onClick={() => {
+            if (loading) return;
+            setLoading(true);
+            setError(null);
+            
             const width = 600;
             const height = 800;
             const left = window.screen.width / 2 - width / 2;
@@ -113,26 +110,32 @@ export default function LoginPage() {
             }
 
             // Sprawdzamy czy okienko zostało zamknięte
-            const timer = setInterval(() => {
-              if (!popup || popup.closed) {
-                clearInterval(timer);
-                
-                // Opóźnienie 300ms, aby przeglądarka zapisała ciasteczka sesyjne
-                setTimeout(() => {
-                  fetch('/api/me')
-                    .then(r => {
-                      if (r.ok) {
-                        window.location.href = '/app';
-                      } else {
-                        setError('Authentication completed but session is invalid. Please try again.');
-                      }
-                    })
-                    .catch(() => {
-                      setError('Connection error checking session.');
-                    });
-                }, 300);
-              }
-            }, 500);
+            if (popup) {
+              const timer = setInterval(() => {
+                if (popup.closed) {
+                  clearInterval(timer);
+                  setLoading(false);
+                  
+                  // Opóźnienie 1000ms, aby przeglądarka zapisała ciasteczka sesyjne
+                  setTimeout(() => {
+                    fetch('/api/me')
+                      .then(r => {
+                        if (r.ok) {
+                          window.location.href = '/app';
+                        } else {
+                          setError('Authentication completed but session is invalid. Please try again.');
+                        }
+                      })
+                      .catch(() => {
+                        setError('Connection error checking session.');
+                      });
+                  }, 1000);
+                }
+              }, 500);
+            } else {
+              setLoading(false);
+              setError('Popup blocked by browser. Please enable popups for this site.');
+            }
           }}
           className={styles.btnLogin}
           style={{ border: 'none', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
