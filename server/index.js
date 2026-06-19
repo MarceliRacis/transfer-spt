@@ -207,7 +207,7 @@ app.get('/auth/callback', async (req, res) => {
     };
 
     if (isPopup) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:");
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -249,12 +249,13 @@ app.get('/auth/callback', async (req, res) => {
               position: relative;
               z-index: 1;
               text-align: center;
-              padding: 2rem;
+              padding: 2.5rem 2rem;
               background: rgba(17, 17, 17, 0.7);
               border: 1px solid rgba(255, 255, 255, 0.05);
               backdrop-filter: blur(10px);
               border-radius: 16px;
               max-width: 320px;
+              width: 100%;
               box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
             }
             .badge {
@@ -289,8 +290,8 @@ app.get('/auth/callback', async (req, res) => {
           <div class="orb"></div>
           <div class="content">
             <div class="badge">SPT / Transfer</div>
-            <h2>Zalogowano!</h2>
-            <p>To okno zaraz się zamknie...</p>
+            <h2>Authenticated!</h2>
+            <p>This window will close automatically...</p>
           </div>
           <script>
             const target = window.opener || window.parent;
@@ -310,7 +311,7 @@ app.get('/auth/callback', async (req, res) => {
   } catch (err) {
     console.error('Auth error:', err.response?.data || err.message);
     if (isPopup) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com");
+      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:");
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -343,12 +344,13 @@ app.get('/auth/callback', async (req, res) => {
               position: relative;
               z-index: 1;
               text-align: center;
-              padding: 2rem;
+              padding: 2.5rem 2rem;
               background: rgba(17, 17, 17, 0.7);
               border: 1px solid rgba(255, 85, 85, 0.2);
               backdrop-filter: blur(10px);
               border-radius: 16px;
               max-width: 320px;
+              width: 100%;
               box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
             }
             h2 {
@@ -367,8 +369,8 @@ app.get('/auth/callback', async (req, res) => {
         <body>
           <div class="noise"></div>
           <div class="content">
-            <h2>Błąd logowania</h2>
-            <p>Spróbuj ponownie za chwilę...</p>
+            <h2>Authentication Failed</h2>
+            <p>Please try again later...</p>
           </div>
           <script>
             const target = window.opener || window.parent;
