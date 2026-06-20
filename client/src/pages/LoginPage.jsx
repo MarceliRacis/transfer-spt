@@ -10,6 +10,7 @@ export default function LoginPage() {
   const pollTimerRef = useRef(null)
   const closedTimerRef = useRef(null)
   const popupRef = useRef(null)
+  const checkSessionRef = useRef(null)
 
   const clearTimers = () => {
     if (pollTimerRef.current) {
@@ -20,6 +21,7 @@ export default function LoginPage() {
       clearInterval(closedTimerRef.current)
       closedTimerRef.current = null
     }
+    checkSessionRef.current = null
   }
 
   useEffect(() => {
@@ -36,8 +38,28 @@ export default function LoginPage() {
       })
       .catch(() => {})
 
+    // ──────────────────────────────────────────────────────────────────
+    // Gdy strona jest osadzona w iframe, otwarcie popupu sprawia że
+    // przeglądarka traktuje iframe jako "w tle" (mimo że jest widoczny
+    // pod popupem) i agresywnie throttluje setInterval - po ok. 5
+    // iteracjach callback odpala się raz na sekundę zamiast co sekundę,
+    // a w praktyce potrafi wyglądać jakby się zatrzymał. Visibilitychange
+    // i focus nie podlegają temu throttlingowi - więc gdy popup się
+    // zamknie albo user wróci do iframe, wymuszamy natychmiastowy
+    // dodatkowy check, niezależnie od tego co robi setInterval.
+    // ──────────────────────────────────────────────────────────────────
+    const forceCheck = () => {
+      if (checkSessionRef.current && document.visibilityState !== 'hidden') {
+        checkSessionRef.current()
+      }
+    }
+    document.addEventListener('visibilitychange', forceCheck)
+    window.addEventListener('focus', forceCheck)
+
     return () => {
       clearTimers()
+      document.removeEventListener('visibilitychange', forceCheck)
+      window.removeEventListener('focus', forceCheck)
     }
   }, [])
 
@@ -81,6 +103,11 @@ export default function LoginPage() {
     // jest otwarty. Backend i tak zapisuje sesję niezależnie od tego, czy
     // popup zdoła się skomunikować z oknem rodzica. To podejście działa
     // zawsze, niezależnie od konfiguracji COOP po którejkolwiek stronie.
+    //
+    // UWAGA 2: jeśli ta strona jest w iframe, sam setInterval może być
+    // throttlowany przez przeglądarkę gdy popup przejmuje focus (patrz
+    // visibilitychange/focus listenery w useEffect wyżej) - to jest
+    // backup, który łapie moment powrotu focusu niezależnie od throttlingu.
     // ──────────────────────────────────────────────────────────────────
 
     const checkSession = () => {
@@ -98,15 +125,21 @@ export default function LoginPage() {
         })
     }
 
+    checkSessionRef.current = checkSession
+
     // Polling sesji co 1s
     pollTimerRef.current = setInterval(checkSession, 1000)
     // Pierwsze sprawdzenie od razu, bez czekania 1s
     checkSession()
 
     // Fallback: jeśli user ręcznie zamknie popup (np. anuluje logowanie
-    // w Spotify) zanim sesja powstanie, przestajemy pollować i odblokowujemy UI
+    // w Spotify) zanim sesja powstanie, przestajemy pollować i odblokowujemy UI.
+    // To też łapie throttling - gdy popup.closed staje się true, robimy
+    // jeszcze jeden checkSession zanim ostatecznie się poddamy, bo throttling
+    // mógł sprawić że ominęliśmy moment w którym sesja faktycznie powstała.
     closedTimerRef.current = setInterval(() => {
       if (popup.closed) {
+        checkSession()
         clearTimers()
         setLoading(false)
       }
