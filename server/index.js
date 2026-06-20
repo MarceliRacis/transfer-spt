@@ -155,13 +155,27 @@ app.get('/auth/callback', async (req, res) => {
           <h2 style="margin-bottom:8px;">Błąd autoryzacji</h2>
           <p style="color:#b3b3b3;margin:0;">Sesja wygasła (mismatch). Zamykanie...</p>
           <script>
-            const target = window.opener || window.parent;
-            if (target && target !== window) {
-              target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
-              window.close();
+            console.log('[SPT DEBUG] === state_mismatch popup loaded ===');
+            console.log('[SPT DEBUG] window.opener:', window.opener);
+            console.log('[SPT DEBUG] window.parent === window:', window.parent === window);
+            console.log('[SPT DEBUG] window.name:', window.name);
+            console.log('[SPT DEBUG] document.referrer:', document.referrer);
+            console.log('[SPT DEBUG] location.href:', location.href);
+
+            const target = window.opener && window.opener !== window ? window.opener : null;
+            if (target) {
+              console.log('[SPT DEBUG] target found, sending postMessage SPOTIFY_AUTH_ERROR (state_mismatch)');
+              try {
+                target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'state_mismatch' }, '*');
+                console.log('[SPT DEBUG] postMessage call completed without throwing');
+              } catch (e) {
+                console.error('[SPT DEBUG] postMessage threw:', e);
+              }
             } else {
-              setTimeout(() => { window.close(); }, 1500);
+              console.error('[SPT DEBUG] NO target - window.opener is null/self. postMessage NOT sent.');
             }
+            console.log('[SPT DEBUG] window will stay open for 10s for inspection. Closing at:', new Date(Date.now() + 10000).toISOString());
+            setTimeout(() => { console.log('[SPT DEBUG] closing now'); window.close(); }, 10000);
           </script>
         </body>
         </html>
@@ -180,15 +194,30 @@ app.get('/auth/callback', async (req, res) => {
         <head><title>Authentication Error</title></head>
         <body style="background:#121212;color:#ff5555;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;">
           <h2 style="margin-bottom:8px;">Błąd autoryzacji</h2>
-          <p style="color:#b3b3b3;margin:0;">Wystąpił błąd Spotify. Zamykanie...</p>
+          <p style="color:#b3b3b3;margin:0;">Wystąpił błąd Spotify. Zamykanie za 10s (debug mode)...</p>
           <script>
-            const target = window.opener || window.parent;
-            if (target && target !== window) {
-              target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
-              window.close();
+            console.log('[SPT DEBUG] === oauth error popup loaded ===');
+            console.log('[SPT DEBUG] error param:', '${error}');
+            console.log('[SPT DEBUG] window.opener:', window.opener);
+            console.log('[SPT DEBUG] window.parent === window:', window.parent === window);
+            console.log('[SPT DEBUG] window.name:', window.name);
+            console.log('[SPT DEBUG] document.referrer:', document.referrer);
+            console.log('[SPT DEBUG] location.href:', location.href);
+
+            const target = window.opener && window.opener !== window ? window.opener : null;
+            if (target) {
+              console.log('[SPT DEBUG] target found, sending postMessage SPOTIFY_AUTH_ERROR');
+              try {
+                target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: '${error}' }, '*');
+                console.log('[SPT DEBUG] postMessage call completed without throwing');
+              } catch (e) {
+                console.error('[SPT DEBUG] postMessage threw:', e);
+              }
             } else {
-              setTimeout(() => { window.close(); }, 1500);
+              console.error('[SPT DEBUG] NO target - window.opener is null/self. postMessage NOT sent.');
             }
+            console.log('[SPT DEBUG] window will stay open for 10s for inspection. Closing at:', new Date(Date.now() + 10000).toISOString());
+            setTimeout(() => { console.log('[SPT DEBUG] closing now'); window.close(); }, 10000);
           </script>
         </body>
         </html>
@@ -307,13 +336,29 @@ app.get('/auth/callback', async (req, res) => {
               <p>This window will close automatically...</p>
             </div>
             <script>
-              const target = window.opener || window.parent;
-              if (target && target !== window) {
-                target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
-                setTimeout(() => { window.close(); }, 500);
+              console.log('[SPT DEBUG] === SUCCESS popup loaded ===');
+              console.log('[SPT DEBUG] window.opener:', window.opener);
+              console.log('[SPT DEBUG] window.parent === window:', window.parent === window);
+              console.log('[SPT DEBUG] window.name:', window.name);
+              console.log('[SPT DEBUG] document.referrer:', document.referrer);
+              console.log('[SPT DEBUG] location.href:', location.href);
+              console.log('[SPT DEBUG] navigator.userAgent:', navigator.userAgent);
+
+              const target = window.opener && window.opener !== window ? window.opener : null;
+              if (target) {
+                console.log('[SPT DEBUG] target found, sending postMessage SPOTIFY_AUTH_SUCCESS');
+                try {
+                  target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
+                  console.log('[SPT DEBUG] postMessage call completed without throwing');
+                } catch (e) {
+                  console.error('[SPT DEBUG] postMessage threw:', e);
+                }
               } else {
-                setTimeout(() => { window.close(); }, 1500);
+                console.error('[SPT DEBUG] NO target - window.opener is null/self. postMessage NOT sent.');
+                console.error('[SPT DEBUG] This means window.opener was severed - check COOP headers on this response, and on the redirect chain through accounts.spotify.com');
               }
+              console.log('[SPT DEBUG] window will stay open for 10s for inspection. Closing at:', new Date(Date.now() + 10000).toISOString());
+              setTimeout(() => { console.log('[SPT DEBUG] closing now'); window.close(); }, 10000);
             </script>
           </body>
           </html>
@@ -387,13 +432,27 @@ app.get('/auth/callback', async (req, res) => {
             <p>Please try again later...</p>
           </div>
           <script>
-            const target = window.opener || window.parent;
-            if (target && target !== window) {
-              target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
-              setTimeout(() => { window.close(); }, 500);
+            console.log('[SPT DEBUG] === auth_failed popup loaded ===');
+            console.log('[SPT DEBUG] window.opener:', window.opener);
+            console.log('[SPT DEBUG] window.parent === window:', window.parent === window);
+            console.log('[SPT DEBUG] window.name:', window.name);
+            console.log('[SPT DEBUG] document.referrer:', document.referrer);
+            console.log('[SPT DEBUG] location.href:', location.href);
+
+            const target = window.opener && window.opener !== window ? window.opener : null;
+            if (target) {
+              console.log('[SPT DEBUG] target found, sending postMessage SPOTIFY_AUTH_ERROR (auth_failed)');
+              try {
+                target.postMessage({ type: 'SPOTIFY_AUTH_ERROR', error: 'auth_failed' }, '*');
+                console.log('[SPT DEBUG] postMessage call completed without throwing');
+              } catch (e) {
+                console.error('[SPT DEBUG] postMessage threw:', e);
+              }
             } else {
-              setTimeout(() => { window.close(); }, 1500);
+              console.error('[SPT DEBUG] NO target - window.opener is null/self. postMessage NOT sent.');
             }
+            console.log('[SPT DEBUG] window will stay open for 10s for inspection. Closing at:', new Date(Date.now() + 10000).toISOString());
+            setTimeout(() => { console.log('[SPT DEBUG] closing now'); window.close(); }, 10000);
           </script>
         </body>
         </html>
