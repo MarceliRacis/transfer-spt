@@ -71,21 +71,32 @@ export default function LoginPage() {
       if (event.origin !== window.location.origin) return
 
       if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
-        cleanup(handleMessage, closedTimerRef.current)
+        // Nie czyścimy jeszcze - czekamy aż popup faktycznie się zamknie.
+        // Dopiero wtedy przeglądarka na 100% przetworzyła Set-Cookie z popupu.
+        window.removeEventListener('message', handleMessage)
+        messageHandlerRef.current = null
 
-        fetch('/api/me')
-          .then(r => {
-            if (r.ok) {
-              window.location.href = '/app'
-            } else {
-              setLoading(false)
-              setError('Authentication completed but session is invalid. Please try again.')
-            }
-          })
-          .catch(() => {
-            setLoading(false)
-            setError('Connection error checking session.')
-          })
+        const waitForClose = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(waitForClose)
+            clearInterval(closedTimerRef.current)
+            closedTimerRef.current = null
+
+            fetch('/api/me')
+              .then(r => {
+                if (r.ok) {
+                  window.location.href = '/app'
+                } else {
+                  setLoading(false)
+                  setError('Authentication completed but session is invalid. Please try again.')
+                }
+              })
+              .catch(() => {
+                setLoading(false)
+                setError('Connection error checking session.')
+              })
+          }
+        }, 50)
       }
 
       if (event.data?.type === 'SPOTIFY_AUTH_ERROR') {

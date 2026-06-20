@@ -206,108 +206,115 @@ app.get('/auth/callback', async (req, res) => {
       expires_at: Date.now() + data.expires_in * 1000
     };
 
-    if (isPopup) {
-      res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:");
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Logged In</title>
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
-          <style>
-            body {
-              background: #080808;
-              color: #f0f0f0;
-              font-family: 'Outfit', sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-              position: relative;
-              overflow: hidden;
-            }
-            .noise {
-              position: absolute;
-              inset: 0;
-              background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-              pointer-events: none;
-              opacity: 0.4;
-            }
-            .orb {
-              position: absolute;
-              width: 400px;
-              height: 400px;
-              border-radius: 50%;
-              background: radial-gradient(circle, rgba(29,185,84,0.15) 0%, transparent 70%);
-              pointer-events: none;
-              z-index: 0;
-            }
-            .content {
-              position: relative;
-              z-index: 1;
-              text-align: center;
-              padding: 2.5rem 2rem;
-              background: rgba(17, 17, 17, 0.7);
-              border: 1px solid rgba(255, 255, 255, 0.05);
-              backdrop-filter: blur(10px);
-              border-radius: 16px;
-              max-width: 320px;
-              width: 100%;
-              box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            }
-            .badge {
-              display: inline-flex;
-              align-items: center;
-              gap: 6px;
-              background: rgba(29,185,84,0.08);
-              border: 1px solid rgba(29,185,84,0.2);
-              border-radius: 100px;
-              padding: 5px 14px;
-              font-size: 0.72rem;
-              font-weight: 600;
-              color: #1DB954;
-              letter-spacing: 0.06em;
-              text-transform: uppercase;
-              margin-bottom: 16px;
-            }
-            h2 {
-              margin: 0 0 8px 0;
-              font-weight: 600;
-              font-size: 1.5rem;
-            }
-            p {
-              color: #888;
-              margin: 0;
-              font-size: 0.9rem;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="noise"></div>
-          <div class="orb"></div>
-          <div class="content">
-            <div class="badge">SPT / Transfer</div>
-            <h2>Authenticated!</h2>
-            <p>This window will close automatically...</p>
-          </div>
-          <script>
-            const target = window.opener || window.parent;
-            if (target && target !== window) {
-              target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
-              setTimeout(() => { window.close(); }, 500);
-            } else {
-              setTimeout(() => { window.close(); }, 1500);
-            }
-          </script>
-        </body>
-        </html>
-      `);
-    }
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${frontendBase}/?error=session_save_failed`);
+      }
 
-    res.redirect(`${frontendBase}/app`);
+      if (isPopup) {
+        res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:");
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Logged In</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+            <style>
+              body {
+                background: #080808;
+                color: #f0f0f0;
+                font-family: 'Outfit', sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                position: relative;
+                overflow: hidden;
+              }
+              .noise {
+                position: absolute;
+                inset: 0;
+                background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+                pointer-events: none;
+                opacity: 0.4;
+              }
+              .orb {
+                position: absolute;
+                width: 400px;
+                height: 400px;
+                border-radius: 50%;
+                background: radial-gradient(circle, rgba(29,185,84,0.15) 0%, transparent 70%);
+                pointer-events: none;
+                z-index: 0;
+              }
+              .content {
+                position: relative;
+                z-index: 1;
+                text-align: center;
+                padding: 2.5rem 2rem;
+                background: rgba(17, 17, 17, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                border-radius: 16px;
+                max-width: 320px;
+                width: 100%;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+              }
+              .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: rgba(29,185,84,0.08);
+                border: 1px solid rgba(29,185,84,0.2);
+                border-radius: 100px;
+                padding: 5px 14px;
+                font-size: 0.72rem;
+                font-weight: 600;
+                color: #1DB954;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                margin-bottom: 16px;
+              }
+              h2 {
+                margin: 0 0 8px 0;
+                font-weight: 600;
+                font-size: 1.5rem;
+              }
+              p {
+                color: #888;
+                margin: 0;
+                font-size: 0.9rem;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="noise"></div>
+            <div class="orb"></div>
+            <div class="content">
+              <div class="badge">SPT / Transfer</div>
+              <h2>Authenticated!</h2>
+              <p>This window will close automatically...</p>
+            </div>
+            <script>
+              const target = window.opener || window.parent;
+              if (target && target !== window) {
+                target.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS' }, '*');
+                setTimeout(() => { window.close(); }, 500);
+              } else {
+                setTimeout(() => { window.close(); }, 1500);
+              }
+            </script>
+          </body>
+          </html>
+        `);
+      }
+
+      res.redirect(`${frontendBase}/app`);
+    });
   } catch (err) {
     console.error('Auth error:', err.response?.data || err.message);
     if (isPopup) {
