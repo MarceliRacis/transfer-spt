@@ -6,9 +6,21 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Refy do sprzątania - żeby nie zostawiać listenerów/timerów po odmontowaniu
-  const messageHandlerRef = useRef(null)
+  // Refy do sprzątania timerów przy odmontowaniu / kolejnej próbie logowania
+  const pollTimerRef = useRef(null)
   const closedTimerRef = useRef(null)
+  const popupRef = useRef(null)
+
+  const clearTimers = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    if (closedTimerRef.current) {
+      clearInterval(closedTimerRef.current)
+      closedTimerRef.current = null
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -25,27 +37,15 @@ export default function LoginPage() {
       .catch(() => {})
 
     return () => {
-      // Sprzątanie przy odmontowaniu
-      if (messageHandlerRef.current) {
-        window.removeEventListener('message', messageHandlerRef.current)
-      }
-      if (closedTimerRef.current) {
-        clearInterval(closedTimerRef.current)
-      }
+      clearTimers()
     }
   }, [])
-
-  const cleanup = (handler, timer) => {
-    if (handler) window.removeEventListener('message', handler)
-    if (timer) clearInterval(timer)
-    messageHandlerRef.current = null
-    closedTimerRef.current = null
-  }
 
   const handleLogin = () => {
     if (loading) return
     setLoading(true)
     setError(null)
+    clearTimers()
 
     const width = 600
     const height = 800
@@ -64,60 +64,53 @@ export default function LoginPage() {
       return
     }
 
-    // Główna metoda: nasłuchuj postMessage z popupu
-    // Serwer wysyła { type: 'SPOTIFY_AUTH_SUCCESS' } lub { type: 'SPOTIFY_AUTH_ERROR', error: '...' }
-    const handleMessage = (event) => {
-      // Ignoruj wiadomości z innych originów
-      if (event.origin !== window.location.origin) return
+    popupRef.current = popup
 
-      if (event.data?.type === 'SPOTIFY_AUTH_SUCCESS') {
-        // Nie czyścimy jeszcze - czekamy aż popup faktycznie się zamknie.
-        // Dopiero wtedy przeglądarka na 100% przetworzyła Set-Cookie z popupu.
-        window.removeEventListener('message', handleMessage)
-        messageHandlerRef.current = null
+    // ──────────────────────────────────────────────────────────────────
+    // UWAGA: NIE polegamy na window.opener / postMessage.
+    //
+    // Powód: w trakcie OAuth flow popup nawiguje przez accounts.spotify.com
+    // (inny origin), a Cross-Origin-Opener-Policy (COOP) - czy to ustawiony
+    // przez nas, czy przez Spotify, czy przez cokolwiek po drodze w łańcuchu
+    // przekierowań - może trwale zerwać relację window.opener w popupie.
+    // Gdy to się dzieje, popup.postMessage(...) zawodzi po cichu: bez błędu,
+    // bez śladu w Network, bo to nie jest request HTTP tylko wywołanie JS
+    // które po prostu nigdy nie dochodzi do skutku (target jest null).
+    //
+    // Zamiast tego: główne okno samo odpytuje /api/me co 1s, dopóki popup
+    // jest otwarty. Backend i tak zapisuje sesję niezależnie od tego, czy
+    // popup zdoła się skomunikować z oknem rodzica. To podejście działa
+    // zawsze, niezależnie od konfiguracji COOP po którejkolwiek stronie.
+    // ──────────────────────────────────────────────────────────────────
 
-        const waitForClose = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(waitForClose)
-            clearInterval(closedTimerRef.current)
-            closedTimerRef.current = null
-
-            fetch('/api/me')
-              .then(r => {
-                if (r.ok) {
-                  window.location.href = '/app'
-                } else {
-                  setLoading(false)
-                  setError('Authentication completed but session is invalid. Please try again.')
-                }
-              })
-              .catch(() => {
-                setLoading(false)
-                setError('Connection error checking session.')
-              })
+    const checkSession = () => {
+      fetch('/api/me')
+        .then(r => {
+          if (r.ok) {
+            // Sesja gotowa - kończymy, zamykamy popup jeśli wciąż otwarty
+            clearTimers()
+            try { if (!popup.closed) popup.close() } catch (e) {}
+            window.location.href = '/app'
           }
-        }, 50)
-      }
-
-      if (event.data?.type === 'SPOTIFY_AUTH_ERROR') {
-        cleanup(handleMessage, closedTimerRef.current)
-        setLoading(false)
-        setError(`Auth error: ${event.data.error}`)
-      }
+        })
+        .catch(() => {
+          // Network error - nie przerywamy pollingu, spróbujemy ponownie
+        })
     }
 
-    messageHandlerRef.current = handleMessage
-    window.addEventListener('message', handleMessage)
+    // Polling sesji co 1s
+    pollTimerRef.current = setInterval(checkSession, 1000)
+    // Pierwsze sprawdzenie od razu, bez czekania 1s
+    checkSession()
 
-    // Fallback: user ręcznie zamknął popup bez zalogowania
-    const closedTimer = setInterval(() => {
+    // Fallback: jeśli user ręcznie zamknie popup (np. anuluje logowanie
+    // w Spotify) zanim sesja powstanie, przestajemy pollować i odblokowujemy UI
+    closedTimerRef.current = setInterval(() => {
       if (popup.closed) {
-        cleanup(messageHandlerRef.current, closedTimer)
+        clearTimers()
         setLoading(false)
       }
     }, 500)
-
-    closedTimerRef.current = closedTimer
   }
 
   return (
