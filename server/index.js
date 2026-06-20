@@ -46,6 +46,13 @@ app.use(helmet({
   // X-Frame-Options nie wspiera wielu domen/wildcardów - wylaczone,
   // ochrona przed clickjackingiem oparta wylacznie na CSP frame-ancestors
   frameguard: false,
+  // Domyślne 'same-origin' COOP zrywa window.opener po przejściu popupu
+  // przez accounts.spotify.com (inny origin w trakcie OAuth flow) -> 
+  // window.opener.postMessage() w popupie zawodzi po cichu, bez błędu,
+  // bez śladu w Network. same-origin-allow-popups pozwala oknu otwierającemu
+  // (naszej stronie) zachować relację z popupami które otworzyło,
+  // nawet jeśli te popupy nawigowały cross-origin.
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   contentSecurityPolicy: {
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
